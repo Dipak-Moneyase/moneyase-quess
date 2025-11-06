@@ -1,11 +1,9 @@
-import React, { useRef, useState } from 'react';
-import Step2ApplicantDetails, { type Step2Ref } from './Step2ApplicantDetails';
+import React, { useState } from 'react';
+import Step2ApplicantDetails from './Step2ApplicantDetails';
 
 const LoanApplication = () => {
-	const step2Ref = useRef<Step2Ref>(null);
 	const [formData, setFormData] = useState<any>({});
 
-	// Dummy prefilled data
 	const defaultValues = {
 		firstName: 'John',
 		lastName: 'Doe',
@@ -46,32 +44,24 @@ const LoanApplication = () => {
 	};
 
 	const handleChange = (data: any) => {
-		console.log('Form changed:', data);
 		setFormData(data);
 	};
 
-	const handleSubmit = async () => {
-		const success = await step2Ref.current?.submitForm();
-		if (success) {
-			alert('Form submitted successfully!');
-			console.log('Final Data:', formData);
-		}
+	const handleFormSubmit = (data: any) => {
+		alert('Form submitted successfully!');
+		console.log('✅ Final Data:', data);
 	};
 
 	return (
 		<div className='container mt-5'>
-			<h2 className='mb-4'>Loan Application</h2>
+			<h2 className='mb-4 text-center'>Loan Application 🏦</h2>
+
 			<Step2ApplicantDetails
-				ref={step2Ref}
 				onChange={handleChange}
 				defaultValues={defaultValues}
-				leadMode='edit' // 'edit' mode skips OTP flow
+				leadMode='edit'
+				onSubmitSuccess={handleFormSubmit}
 			/>
-			<div className='mt-4 text-end'>
-				<button className='btn btn-primary' onClick={handleSubmit}>
-					Submit Application
-				</button>
-			</div>
 		</div>
 	);
 };

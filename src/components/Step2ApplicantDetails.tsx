@@ -5,7 +5,7 @@ import React, {
 	useRef,
 	useState,
 } from 'react';
-import { Form, Row, Col, Button } from 'react-bootstrap';
+import { Form, Row, Col, Button, Card } from 'react-bootstrap';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useAuth } from '../Hooks/AuthContext';
 import { useSendOtp, useVerifyOtp } from '../Hooks/commonHooks';
@@ -14,6 +14,7 @@ interface Props {
 	onChange: (data: Partial<any>) => void;
 	defaultValues: Partial<any>;
 	leadMode: string; // 'edit' | 'create'
+	onSubmitSuccess: any;
 }
 
 export interface Step2Ref {
@@ -21,7 +22,7 @@ export interface Step2Ref {
 }
 
 const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
-	({ onChange, defaultValues, leadMode }, ref) => {
+	({ onChange, defaultValues, leadMode, onSubmitSuccess }, ref) => {
 		const {
 			register,
 			handleSubmit,
@@ -191,7 +192,32 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 			},
 		}));
 
-		const onSubmit = () => {};
+		const onSubmit = async (data: any) => {
+			const valid = await trigger();
+			if (!valid) return;
+
+			if (leadMode !== 'edit' && consent) {
+				if (!otpValue || otpValue.length < 6) {
+					setError('otp', { message: 'OTP is required' });
+					return;
+				}
+				try {
+					const result = await verifyOtp({
+						mobile: data.mobile,
+						otp: otpValue,
+					});
+					if (!result?.success) {
+						setError('otp', { message: 'Invalid OTP' });
+						return;
+					}
+				} catch {
+					setError('otp', { message: 'OTP verification failed' });
+					return;
+				}
+			}
+
+			onSubmitSuccess?.(data);
+		};
 
 		// OTP input handlers
 		const handleOtpChange = (value: string, index: number) => {
@@ -246,551 +272,613 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 		};
 
 		return (
-			<Form onSubmit={handleSubmit(onSubmit)}>
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>First Name (as per Aadhaar) *</Form.Label>
-							<Form.Control
-								placeholder='Enter First Name'
-								{...register('firstName', {
-									required: 'First Name is required',
-									minLength: { value: 2, message: 'Minimum 2 characters' },
-								})}
-								isInvalid={!!errors.firstName}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.firstName?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Last Name *</Form.Label>
-							<Form.Control
-								placeholder='Enter Last Name'
-								{...register('lastName', {
-									required: 'Last Name is required',
-									minLength: { value: 2, message: 'Minimum 2 characters' },
-								})}
-								isInvalid={!!errors.lastName}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.lastName?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
+			<Card
+				className='shadow-lg p-4 mt-3 rounded-4'
+				style={{
+					background: 'linear-gradient(145deg, #f8faff, #ffffff)',
+					border: '1px solid #dee3f0',
+					boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+					transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+				}}
+				onMouseEnter={(e) => {
+					e.currentTarget.style.transform = 'scale(1.01)';
+					e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.15)';
+				}}
+				onMouseLeave={(e) => {
+					e.currentTarget.style.transform = 'scale(1)';
+					e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+				}}
+			>
+				<Card.Header
+					className='text-center text-white fw-bold rounded-3 mb-4'
+					style={{
+						background: 'linear-gradient(90deg, #007bff, #6610f2)',
+						fontSize: '1.3rem',
+						padding: '0.75rem',
+						letterSpacing: '0.5px',
+					}}
+				>
+					👤 Applicant Details
+				</Card.Header>
 
-				{/* Father/Husband Name */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Father/Husband Name *</Form.Label>
-							<Form.Control
-								placeholder='Enter Father/Husband Name'
-								{...register('fatherHusbandName', {
-									required: 'Father/Husband Name is required',
-								})}
-								isInvalid={!!errors.fatherHusbandName}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.fatherHusbandName?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* Email + Mobile */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Email (For Communication) *</Form.Label>
-							<Form.Control
-								type='email'
-								placeholder='Enter Email'
-								{...register('email', {
-									required: 'Email is required',
-									pattern: {
-										value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-										message: 'Enter a valid email',
-									},
-								})}
-								isInvalid={!!errors.email}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.email?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Mobile (Aadhaar Linked) *</Form.Label>
-							<Form.Control
-								placeholder='Enter Mobile'
-								disabled={leadMode === 'edit'}
-								{...register('mobile', {
-									required: 'Mobile is required',
-									pattern: {
-										value: /^[0-9]{10}$/,
-										message: 'Enter valid 10-digit mobile number',
-									},
-								})}
-								isInvalid={!!errors.mobile}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.mobile?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* DOB + Gender */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Date of Birth *</Form.Label>
-							<Form.Control
-								type='date'
-								max={new Date().toISOString().split('T')[0]}
-								{...register('dob', {
-									required: 'DOB is required',
-									validate: (value) => {
-										const today = new Date();
-										const selected = new Date(value);
-										return selected <= today || 'DOB cannot be a future date';
-									},
-								})}
-								isInvalid={!!errors.dob}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.dob?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Gender *</Form.Label>
-							<Form.Select
-								{...register('gender', { required: 'Gender is required' })}
-								isInvalid={!!errors.gender}
-							>
-								<option value=''>Select Gender</option>
-								<option value='1'>Male</option>
-								<option value='2'>Female</option>
-								<option value='3'>Other</option>
-							</Form.Select>
-							<Form.Control.Feedback type='invalid'>
-								{errors.gender?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* PAN + Aadhaar */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>PAN Number *</Form.Label>
-							<Form.Control
-								placeholder='Enter PAN Number'
-								{...register('panNumber', {
-									required: 'PAN is required',
-									pattern: {
-										value: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
-										message: 'Enter valid PAN number',
-									},
-								})}
-								onChange={(e) => {
-									const upper = e.target.value.toUpperCase();
-									e.target.value = upper;
-									setValue('panNumber', upper, { shouldValidate: true });
-								}}
-								isInvalid={!!errors.panNumber}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.panNumber?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Aadhaar (Last 4 digits) *</Form.Label>
-							<Form.Control
-								placeholder='1234'
-								maxLength={4}
-								{...register('aadhaarLast4', {
-									required: 'Aadhaar last 4 digits required',
-									pattern: {
-										value: /^[0-9]{4}$/,
-										message: 'Enter valid 4-digit Aadhaar',
-									},
-								})}
-								isInvalid={!!errors.aadhaarLast4}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.aadhaarLast4?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* Voter + Driving */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Voter ID</Form.Label>
-							<Form.Control
-								placeholder='Enter Voter ID'
-								{...register('voterId')}
-							/>
-						</Form.Group>
-					</Col>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Driving License</Form.Label>
-							<Form.Control
-								placeholder='Enter Driving License'
-								{...register('drivingLicense')}
-							/>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* Pincode + Address */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Residence Type *</Form.Label>
-							<Form.Select
-								{...register('residenceType', {
-									required: 'Residence Type is required',
-								})}
-								isInvalid={!!errors.residenceType}
-							>
-								<option value=''>Select</option>
-								<option value='0'>Owned</option>
-								<option value='1'>Rented</option>
-							</Form.Select>
-							<Form.Control.Feedback type='invalid'>
-								{errors.residenceType?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Residence Pincode *</Form.Label>
-							<Form.Control
-								placeholder='Enter Pincode'
-								{...register('pinCode', {
-									required: 'Pincode is required',
-									pattern: {
-										value: /^[0-9]{6}$/,
-										message: 'Enter valid 6-digit pincode',
-									},
-								})}
-								isInvalid={!!errors.pinCode}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.pinCode?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Residence Address Line 1 *</Form.Label>
-							<Form.Control
-								placeholder='Enter Address Line 1'
-								{...register('addressLine1', {
-									required: 'Address is required',
-								})}
-								isInvalid={!!errors.addressLine1}
-							/>
-							<Form.Control.Feedback type='invalid'>
-								{errors.addressLine1?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Residence Address Line 2</Form.Label>
-							<Form.Control
-								placeholder='Enter Address Line 2'
-								{...register('addressLine2')}
-							/>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* Marital + Dependents */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Marital Status *</Form.Label>
-							<Form.Select
-								{...register('maritalStatus', {
-									required: 'Marital Status is required',
-								})}
-								isInvalid={!!errors.maritalStatus}
-							>
-								<option value=''>Select</option>
-								<option value='0'>Single</option>
-								<option value='1'>Married</option>
-							</Form.Select>
-						</Form.Group>
-					</Col>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Number of Dependents *</Form.Label>
-							<Form.Select
-								{...register('dependents', {
-									required: 'Dependents is required',
-								})}
-								isInvalid={!!errors.dependents}
-							>
-								{Array.from({ length: 11 }).map((_, i) => (
-									<option key={i} value={i}>
-										{i}
-									</option>
-								))}
-							</Form.Select>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* Employment Type */}
-				<Row>
-					<Col>
-						<Form.Group className='mb-3'>
-							<Form.Label>Occupation detail *</Form.Label>
-							<Form.Select
-								{...register('employmentType', {
-									required: 'Employment Type is required',
-								})}
-								isInvalid={!!errors.employmentType}
-							>
-								<option value=''>Select Employment Type</option>
-								<option value='0'>Salaried</option>
-								<option value='1'>Self Employed</option>
-							</Form.Select>
-							<Form.Control.Feedback type='invalid'>
-								{errors.employmentType?.message as string}
-							</Form.Control.Feedback>
-						</Form.Group>
-					</Col>
-				</Row>
-
-				{/* Children Details */}
-				{String(maritalStatus) === '1' && (
-					<div className='mb-3'>
-						<h6>Children Details</h6>
-						{fields.map((field, index) => (
-							<div key={field.id} className='border p-3 mb-2 rounded'>
-								<Row>
-									<Col>
-										<Form.Group>
-											<Form.Label>Name</Form.Label>
-											<Form.Control
-												{...register(`children.${index}.name` as const)}
-											/>
-										</Form.Group>
-									</Col>
-									<Col>
-										<Form.Group>
-											<Form.Label>Son/Daughter</Form.Label>
-											<Form.Select
-												{...register(`children.${index}.relation` as const)}
-											>
-												<option value=''>Select</option>
-												<option value='Son'>Son</option>
-												<option value='Daughter'>Daughter</option>
-											</Form.Select>
-										</Form.Group>
-									</Col>
-									<Col>
-										<Form.Group>
-											<Form.Label>Age</Form.Label>
-											<Form.Control
-												type='number'
-												{...register(`children.${index}.age` as const)}
-											/>
-										</Form.Group>
-									</Col>
-									<Col>
-										<Form.Group>
-											<Form.Label>Education</Form.Label>
-											<Form.Control
-												{...register(`children.${index}.education` as const)}
-											/>
-										</Form.Group>
-									</Col>
-									<Col>
-										<Form.Group>
-											<Form.Label>Occupation Name & Place</Form.Label>
-											<Form.Control
-												{...register(
-													`children.${index}.occupationPlace` as const,
-												)}
-											/>
-										</Form.Group>
-									</Col>
-									<Col xs='auto' className='d-flex align-items-end'>
-										<Button
-											variant='outline-danger'
-											size='sm'
-											onClick={() => remove(index)}
-										>
-											Remove
-										</Button>
-									</Col>
-								</Row>
-							</div>
-						))}
-
-						<Button
-							variant='outline-primary'
-							size='sm'
-							onClick={() =>
-								append({
-									name: '',
-									relation: '',
-									age: '',
-									education: '',
-									occupationPlace: '',
-								})
-							}
-						>
-							+ Add Child
-						</Button>
-					</div>
-				)}
-				<Form.Group className='mt-3'>
-					<Form.Check
-						type='checkbox'
-						disabled={leadMode === 'edit'}
-						defaultChecked={leadMode === 'edit'}
-						{...register('consent', {
-							required: leadMode !== 'edit' ? 'Consent is required' : false,
-						})}
-						label={
-							<span style={{ fontSize: '0.8rem' }}>
-								I give consent to verify KYC, and agree to the{' '}
-								<a
-									href='#'
-									onClick={(e) => {
-										e.preventDefault();
-										openStaticHtmlInNewTab(
-											'/assets/privacy-policy.html',
-											"company's policies",
-										);
-									}}
-								>
-									company's policies
-								</a>{' '}
-								and{' '}
-								<a
-									href='#'
-									onClick={(e) => {
-										e.preventDefault();
-										openStaticHtmlInNewTab(
-											'/assets/terms.html',
-											'Terms & Conditions',
-										);
-									}}
-								>
-									Terms & Conditions
-								</a>
-								.
-							</span>
-						}
-						isInvalid={leadMode !== 'edit' && !!errors.consent}
-					/>
-					{leadMode !== 'edit' && (
-						<Form.Control.Feedback type='invalid'>
-							{errors.consent?.message as string}
-						</Form.Control.Feedback>
-					)}
-				</Form.Group>
-
-				{consent && leadMode !== 'edit' && (
-					<Form.Group className='mt-3'>
-						<Form.Label>Enter OTP *</Form.Label>
-						<div className='d-flex gap-2' onPaste={handlePaste}>
-							{otpDigits.map((digit, idx) => (
-								<input
-									key={idx}
-									type='text'
-									inputMode='numeric'
-									pattern='[0-9]*'
-									maxLength={1}
-									value={digit}
-									ref={(el) => (inputRefs.current[idx] = el)}
-									onChange={(e) => handleOtpChange(e.target.value.trim(), idx)}
-									onKeyDown={(e) => handleKeyDown(e, idx)}
-									className='form-control text-center'
-									style={{
-										width: '48px',
-										height: '48px',
-										fontSize: '1.25rem',
-										fontWeight: 500,
-										borderRadius: '8px',
-										border: '1px solid #ced4da',
-										background: '#f8f9fa',
-									}}
-									aria-label={`OTP digit ${idx + 1}`}
+				<Form onSubmit={handleSubmit(onSubmit)}>
+					{/* ===== First + Last Name ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>First Name (as per Aadhaar) *</Form.Label>
+								<Form.Control
+									placeholder='Enter First Name'
+									{...register('firstName', {
+										required: 'First Name is required',
+										minLength: { value: 2, message: 'Minimum 2 characters' },
+									})}
+									isInvalid={!!errors.firstName}
 								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.firstName?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Last Name *</Form.Label>
+								<Form.Control
+									placeholder='Enter Last Name'
+									{...register('lastName', {
+										required: 'Last Name is required',
+										minLength: { value: 2, message: 'Minimum 2 characters' },
+									})}
+									isInvalid={!!errors.lastName}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.lastName?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ===== Father/Husband Name ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Father/Husband Name *</Form.Label>
+								<Form.Control
+									placeholder='Enter Father/Husband Name'
+									{...register('fatherHusbandName', {
+										required: 'Father/Husband Name is required',
+									})}
+									isInvalid={!!errors.fatherHusbandName}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.fatherHusbandName?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ===== Email + Mobile ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Email (For Communication) *</Form.Label>
+								<Form.Control
+									type='email'
+									placeholder='Enter Email'
+									{...register('email', {
+										required: 'Email is required',
+										pattern: {
+											value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+											message: 'Enter a valid email',
+										},
+									})}
+									isInvalid={!!errors.email}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.email?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Mobile (Aadhaar Linked) *</Form.Label>
+								<Form.Control
+									placeholder='Enter Mobile'
+									disabled={leadMode === 'edit'}
+									{...register('mobile', {
+										required: 'Mobile is required',
+										pattern: {
+											value: /^[0-9]{10}$/,
+											message: 'Enter valid 10-digit mobile number',
+										},
+									})}
+									isInvalid={!!errors.mobile}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.mobile?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ===== DOB + Gender ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Date of Birth *</Form.Label>
+								<Form.Control
+									type='date'
+									max={new Date().toISOString().split('T')[0]}
+									{...register('dob', {
+										required: 'DOB is required',
+										validate: (value) => {
+											const today = new Date();
+											const selected = new Date(value);
+											return selected <= today || 'DOB cannot be a future date';
+										},
+									})}
+									isInvalid={!!errors.dob}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.dob?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Gender *</Form.Label>
+								<Form.Select
+									{...register('gender', { required: 'Gender is required' })}
+									isInvalid={!!errors.gender}
+								>
+									<option value=''>Select Gender</option>
+									<option value='1'>Male</option>
+									<option value='2'>Female</option>
+									<option value='3'>Other</option>
+								</Form.Select>
+								<Form.Control.Feedback type='invalid'>
+									{errors.gender?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ===== PAN + Aadhaar ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>PAN Number *</Form.Label>
+								<Form.Control
+									placeholder='Enter PAN Number'
+									{...register('panNumber', {
+										required: 'PAN is required',
+										pattern: {
+											value: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
+											message: 'Enter valid PAN number',
+										},
+									})}
+									onChange={(e) => {
+										const upper = e.target.value.toUpperCase();
+										e.target.value = upper;
+										setValue('panNumber', upper, { shouldValidate: true });
+									}}
+									isInvalid={!!errors.panNumber}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.panNumber?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Aadhaar Number *</Form.Label>
+								<Form.Control
+									placeholder='123412341234'
+									maxLength={12}
+									{...register('aadhaarNumber', {
+										required: 'Aadhaar number is required',
+										pattern: {
+											value: /^[2-9]{1}[0-9]{11}$/,
+											message: 'Enter a valid 12-digit Aadhaar number',
+										},
+										validate: (value) =>
+											value.length === 12 ||
+											'Aadhaar must be exactly 12 digits',
+									})}
+									isInvalid={!!errors.aadhaarNumber}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.aadhaarNumber?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ===== Voter + Driving ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Voter ID</Form.Label>
+								<Form.Control
+									placeholder='Enter Voter ID'
+									{...register('voterId')}
+								/>
+							</Form.Group>
+						</Col>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Driving License</Form.Label>
+								<Form.Control
+									placeholder='Enter Driving License'
+									{...register('drivingLicense')}
+								/>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ===== Address ===== */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Residence Type *</Form.Label>
+								<Form.Select
+									{...register('residenceType', {
+										required: 'Residence Type is required',
+									})}
+									isInvalid={!!errors.residenceType}
+								>
+									<option value=''>Select</option>
+									<option value='0'>Owned</option>
+									<option value='1'>Rented</option>
+								</Form.Select>
+								<Form.Control.Feedback type='invalid'>
+									{errors.residenceType?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Residence Pincode *</Form.Label>
+								<Form.Control
+									placeholder='Enter Pincode'
+									{...register('pinCode', {
+										required: 'Pincode is required',
+										pattern: {
+											value: /^[0-9]{6}$/,
+											message: 'Enter valid 6-digit pincode',
+										},
+									})}
+									isInvalid={!!errors.pinCode}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.pinCode?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Residence Address Line 1 *</Form.Label>
+								<Form.Control
+									placeholder='Enter Address Line 1'
+									{...register('addressLine1', {
+										required: 'Address is required',
+									})}
+									isInvalid={!!errors.addressLine1}
+								/>
+								<Form.Control.Feedback type='invalid'>
+									{errors.addressLine1?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Residence Address Line 2</Form.Label>
+								<Form.Control
+									placeholder='Enter Address Line 2'
+									{...register('addressLine2')}
+								/>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* Marital + Dependents */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Marital Status *</Form.Label>
+								<Form.Select
+									{...register('maritalStatus', {
+										required: 'Marital Status is required',
+									})}
+									isInvalid={!!errors.maritalStatus}
+								>
+									<option value=''>Select</option>
+									<option value='0'>Single</option>
+									<option value='1'>Married</option>
+								</Form.Select>
+							</Form.Group>
+						</Col>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Number of Dependents *</Form.Label>
+								<Form.Select
+									{...register('dependents', {
+										required: 'Dependents is required',
+									})}
+									isInvalid={!!errors.dependents}
+								>
+									{Array.from({ length: 11 }).map((_, i) => (
+										<option key={i} value={i}>
+											{i}
+										</option>
+									))}
+								</Form.Select>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* Employment Type */}
+					<Row>
+						<Col>
+							<Form.Group className='mb-3'>
+								<Form.Label>Occupation detail *</Form.Label>
+								<Form.Select
+									{...register('employmentType', {
+										required: 'Employment Type is required',
+									})}
+									isInvalid={!!errors.employmentType}
+								>
+									<option value=''>Select Employment Type</option>
+									<option value='0'>Salaried</option>
+									<option value='1'>Self Employed</option>
+								</Form.Select>
+								<Form.Control.Feedback type='invalid'>
+									{errors.employmentType?.message as string}
+								</Form.Control.Feedback>
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* Children Details */}
+					{String(maritalStatus) === '1' && (
+						<div className='mb-3'>
+							<h6>Children Details</h6>
+							{fields.map((field, index) => (
+								<div key={field.id} className='border p-3 mb-2 rounded'>
+									<Row>
+										<Col>
+											<Form.Group>
+												<Form.Label>Name</Form.Label>
+												<Form.Control
+													{...register(`children.${index}.name` as const)}
+												/>
+											</Form.Group>
+										</Col>
+										<Col>
+											<Form.Group>
+												<Form.Label>Son/Daughter</Form.Label>
+												<Form.Select
+													{...register(`children.${index}.relation` as const)}
+												>
+													<option value=''>Select</option>
+													<option value='Son'>Son</option>
+													<option value='Daughter'>Daughter</option>
+												</Form.Select>
+											</Form.Group>
+										</Col>
+										<Col>
+											<Form.Group>
+												<Form.Label>Age</Form.Label>
+												<Form.Control
+													type='number'
+													{...register(`children.${index}.age` as const)}
+												/>
+											</Form.Group>
+										</Col>
+										<Col>
+											<Form.Group>
+												<Form.Label>Education</Form.Label>
+												<Form.Control
+													{...register(`children.${index}.education` as const)}
+												/>
+											</Form.Group>
+										</Col>
+										<Col>
+											<Form.Group>
+												<Form.Label>Occupation Name & Place</Form.Label>
+												<Form.Control
+													{...register(
+														`children.${index}.occupationPlace` as const,
+													)}
+												/>
+											</Form.Group>
+										</Col>
+										<Col xs='auto' className='d-flex align-items-end'>
+											<Button
+												variant='outline-danger'
+												size='sm'
+												onClick={() => remove(index)}
+											>
+												Remove
+											</Button>
+										</Col>
+									</Row>
+								</div>
 							))}
-						</div>
 
-						<input
-							type='hidden'
-							{...register('otp', {
-								required: consent
-									? 'OTP is required when consent checked'
-									: false,
-								validate: (val: any) =>
-									!consent || (val && val.length === 6) || 'Enter 6 digit OTP',
-							})}
-						/>
-
-						<Form.Control.Feedback type='invalid' className='d-block'>
-							{errors.otp?.message as string}
-						</Form.Control.Feedback>
-
-						{sendingOtp && <small className='text-info'>Sending OTP...</small>}
-						{verifyingOtp && (
-							<small className='text-info'>Validating OTP...</small>
-						)}
-
-						<div className='mt-2'>
 							<Button
-								variant='link'
-								disabled={resendTimer > 0}
-								onClick={() => {
-									const mobile = watch('mobile');
-									if (mobile && /^[0-9]{10}$/.test(mobile)) {
-										sendOtpHandler(mobile);
-									} else {
-										setError('mobile', {
-											message: 'Enter valid mobile before resending OTP',
-										});
-									}
-								}}
+								variant='outline-primary'
+								size='sm'
+								onClick={() =>
+									append({
+										name: '',
+										relation: '',
+										age: '',
+										education: '',
+										occupationPlace: '',
+									})
+								}
 							>
-								{resendTimer > 0
-									? `Resend OTP in ${resendTimer}s`
-									: 'Resend OTP'}
+								+ Add Child
 							</Button>
 						</div>
+					)}
+
+					{/* ===== Consent + OTP ===== */}
+					<Form.Group className='mt-3'>
+						<Form.Check
+							type='checkbox'
+							disabled={leadMode === 'edit'}
+							defaultChecked={leadMode === 'edit'}
+							{...register('consent', {
+								required: leadMode !== 'edit' ? 'Consent is required' : false,
+							})}
+							label={
+								<span style={{ fontSize: '0.8rem' }}>
+									Consent to conducting a credit bureau check, verify my KYC
+									(Know Your Customer) details through Digilocker, UIDAI, or
+									CKYCR, as applicable, and processing my personal information
+									in accordance with the{' '}
+									<a
+										href='#'
+										onClick={(e) => {
+											e.preventDefault();
+											openStaticHtmlInNewTab(
+												'/privacy-policy.html',
+												"company's policies",
+											);
+										}}
+									>
+										company's policies
+									</a>{' '}
+									and{' '}
+									<a
+										href='#'
+										onClick={(e) => {
+											e.preventDefault();
+											openStaticHtmlInNewTab(
+												'/terms.html',
+												'Terms & Conditions',
+											);
+										}}
+									>
+										Terms & Conditions
+									</a>
+									. I acknowledge that I have read, understood and agree to the
+									terms and conditions of the loan / service.
+								</span>
+							}
+							isInvalid={leadMode !== 'edit' && !!errors.consent}
+						/>
+						{leadMode !== 'edit' && (
+							<Form.Control.Feedback type='invalid'>
+								{errors.consent?.message as string}
+							</Form.Control.Feedback>
+						)}
 					</Form.Group>
-				)}
-				<button type='submit' style={{ display: 'none' }} />
-			</Form>
+
+					{consent && leadMode !== 'edit' && (
+						<Form.Group className='mt-3'>
+							<Form.Label>Enter OTP *</Form.Label>
+							<div
+								className='d-flex gap-2 justify-content-center'
+								onPaste={handlePaste}
+							>
+								{otpDigits.map((digit, idx) => (
+									<input
+										key={idx}
+										type='text'
+										inputMode='numeric'
+										maxLength={1}
+										value={digit}
+										ref={(el) => (inputRefs.current[idx] = el)}
+										onChange={(e) =>
+											handleOtpChange(e.target.value.trim(), idx)
+										}
+										onKeyDown={(e) => handleKeyDown(e, idx)}
+										className='form-control text-center shadow-sm'
+										style={{
+											width: '48px',
+											height: '48px',
+											fontSize: '1.25rem',
+											fontWeight: 600,
+											borderRadius: '10px',
+											border: '2px solid #cfe2ff',
+											background: '#f9fbff',
+											transition: '0.2s',
+										}}
+										onFocus={(e) =>
+											(e.currentTarget.style.borderColor = '#007bff')
+										}
+										onBlur={(e) =>
+											(e.currentTarget.style.borderColor = '#cfe2ff')
+										}
+									/>
+								))}
+							</div>
+
+							<input
+								type='hidden'
+								{...register('otp', {
+									required: consent ? 'OTP is required' : false,
+									validate: (val: any) =>
+										!consent ||
+										(val && val.length === 6) ||
+										'Enter 6 digit OTP',
+								})}
+							/>
+
+							<Form.Control.Feedback type='invalid' className='d-block'>
+								{errors.otp?.message as string}
+							</Form.Control.Feedback>
+
+							{sendingOtp && (
+								<small className='text-info'>Sending OTP...</small>
+							)}
+							{verifyingOtp && (
+								<small className='text-info'>Validating OTP...</small>
+							)}
+
+							<div className='mt-2 text-center'>
+								<Button
+									variant='outline-primary'
+									size='sm'
+									disabled={resendTimer > 0}
+									onClick={() => {
+										const mobile = watch('mobile');
+										if (mobile && /^[0-9]{10}$/.test(mobile))
+											sendOtpHandler(mobile);
+										else
+											setError('mobile', {
+												message: 'Enter valid mobile before resending OTP',
+											});
+									}}
+								>
+									{resendTimer > 0
+										? `Resend OTP in ${resendTimer}s`
+										: 'Resend OTP'}
+								</Button>
+							</div>
+						</Form.Group>
+					)}
+
+					<div className='text-center mt-4'>
+						<Button
+							type='submit'
+							variant='primary'
+							className='px-4 py-2 rounded-3 shadow-sm'
+							style={{ fontWeight: 600 }}
+						>
+							Submit Application 🚀
+						</Button>
+					</div>
+				</Form>
+			</Card>
 		);
 	},
 );
