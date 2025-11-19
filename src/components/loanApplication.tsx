@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import Step2ApplicantDetails from './Step2ApplicantDetails';
+import { useNavigate } from 'react-router-dom';
+import HeaderLogo from './header';
 
 const LoanApplication = () => {
 	const [formData, setFormData] = useState<any>({});
+	const navigate = useNavigate();
 
 	const defaultValues = {
 		firstName: 'John',
@@ -48,14 +51,14 @@ const LoanApplication = () => {
 	};
 
 	const handleFormSubmit = (data: any) => {
-		alert('Form submitted successfully!');
+		//alert('Form submitted successfully!');
 		console.log('✅ Final Data:', data);
+		navigate('/kycInitiated');
 	};
 
 	return (
-		<div className='container mt-5'>
-			<h2 className='mb-4 text-center'>Loan Application 🏦</h2>
-
+		<div className='container'>
+			{/*<h2 className='mb-4 text-center'>Loan Application 🏦</h2>*/}
 			<Step2ApplicantDetails
 				onChange={handleChange}
 				defaultValues={defaultValues}

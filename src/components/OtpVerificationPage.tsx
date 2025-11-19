@@ -1,27 +1,24 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Button, Form } from 'react-bootstrap';
 import { useSendOtp, useVerifyOtp } from '../Hooks/commonHooks';
-import { useNavigate } from 'react-router-dom';
 import logo from '../assets/moneyimg/logo-sm.png';
 
 interface OtpVerificationProps {
 	name: string;
 	mobile: string;
 	customerId: string;
+	onVerified: () => void; // called once OTP verified
 }
 
 const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 	name,
 	mobile,
 	customerId,
+	onVerified,
 }) => {
-	const navigate = useNavigate();
-
-	// Hooks
 	const { mutate: sendOtp, isPending: sendingOtp } = useSendOtp();
 	const { mutateAsync: verifyOtp, isPending: verifyingOtp } = useVerifyOtp();
 
-	// OTP state
 	const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
 	const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 	const [resendTimer, setResendTimer] = useState(0);
@@ -42,11 +39,13 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 	};
 
 	useEffect(() => {
-		// send OTP as soon as user lands
-		sendOtpHandler(mobile);
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
 		};
+	}, []);
+
+	useEffect(() => {
+		sendOtpHandler(mobile);
 	}, []);
 
 	const sendOtpHandler = (mobile: string) => {
@@ -74,10 +73,10 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 		const target = e.target as HTMLInputElement;
 		if (e.key === 'Backspace') {
 			if (!target.value && index > 0) inputRefs.current[index - 1]?.focus();
-		} else if (e.key === 'ArrowLeft') {
-			if (index > 0) inputRefs.current[index - 1]?.focus();
-		} else if (e.key === 'ArrowRight') {
-			if (index < 5) inputRefs.current[index + 1]?.focus();
+		} else if (e.key === 'ArrowLeft' && index > 0) {
+			inputRefs.current[index - 1]?.focus();
+		} else if (e.key === 'ArrowRight' && index < 5) {
+			inputRefs.current[index + 1]?.focus();
 		}
 	};
 
@@ -87,9 +86,7 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 		const digits = paste.replace(/\D/g, '').slice(0, 6).split('');
 		if (digits.length === 0) return;
 		const newOtp = [...otpDigits];
-		for (let i = 0; i < 6; i++) {
-			newOtp[i] = digits[i] ?? '';
-		}
+		for (let i = 0; i < 6; i++) newOtp[i] = digits[i] ?? '';
 		setOtpDigits(newOtp);
 		setTimeout(() => {
 			const focusIndex = Math.min(digits.length, 5);
@@ -106,16 +103,16 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 		try {
 			const result = await verifyOtp({ mobile, otp: otpValue });
 			if (result?.success) {
-				alert('OTP Verified Successfully!');
-				navigate('/loanApplication', {
-					state: { name, mobile, customerId },
-				});
+				alert('✅ OTP Verified Successfully!');
+				onVerified();
 			} else {
-				alert('Invalid or expired OTP');
+				alert('❌ Invalid or expired OTP');
 				setOtpDigits(Array(6).fill(''));
+				inputRefs.current[0]?.focus();
 			}
-		} catch {
-			alert('OTP verification failed. Please try again.');
+		} catch (err) {
+			console.error(err);
+			alert('⚠️ OTP verification failed. Please try again.');
 		}
 	};
 
@@ -129,7 +126,11 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 		>
 			<div
 				className='bg-white p-5 text-center rounded-4 shadow-lg'
-				style={{ width: '400px', maxWidth: '90%' }}
+				style={{
+					width: '400px',
+					maxWidth: '90%',
+					boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+				}}
 			>
 				<img
 					src={logo}
@@ -170,7 +171,7 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 									borderRadius: '10px',
 									border: '1px solid #ccc',
 									background: '#f8f9fa',
-									boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+									boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
 								}}
 							/>
 						))}
@@ -180,7 +181,7 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 				<div className='mt-3'>
 					<Button
 						variant='primary'
-						className='w-100 rounded-pill'
+						className='w-100 rounded-pill fw-semibold'
 						onClick={handleVerify}
 						disabled={verifyingOtp}
 					>
@@ -193,7 +194,8 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 						variant='link'
 						disabled={resendTimer > 0 || sendingOtp}
 						onClick={() => sendOtpHandler(mobile)}
-						className='text-decoration-none'
+						className='text-decoration-none fw-semibold'
+						style={{ color: '#5563DE' }}
 					>
 						{resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
 					</Button>

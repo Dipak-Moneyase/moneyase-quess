@@ -3,12 +3,9 @@ import React, {
 	forwardRef,
 	useImperativeHandle,
 	useRef,
-	useState,
 } from 'react';
 import { Form, Row, Col, Button, Card } from 'react-bootstrap';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { useAuth } from '../Hooks/AuthContext';
-import { useSendOtp, useVerifyOtp } from '../Hooks/commonHooks';
+import { useForm } from 'react-hook-form';
 
 interface Props {
 	onChange: (data: Partial<any>) => void;
@@ -29,10 +26,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 			formState: { errors },
 			watch,
 			trigger,
-			control,
 			setValue,
 			reset,
-			setError,
 		} = useForm<Partial<any>>({
 			defaultValues: {
 				consent: leadMode === 'edit',
@@ -42,44 +37,9 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 			shouldUnregister: false,
 		});
 
-		const maritalStatus = watch('maritalStatus');
-		const consent = watch('consent');
-		const otpValue = watch('otp');
-
-		const { fields, append, remove } = useFieldArray({
-			control,
-			name: 'children',
-		});
-
 		const initializedRef = useRef(false);
-		const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
-		const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-		// resend otp timer
-		const [resendTimer, setResendTimer] = useState(0);
-		const timerRef = useRef<any>(null);
-
-		const startResendTimer = () => {
-			setResendTimer(60);
-			if (timerRef.current) clearInterval(timerRef.current);
-			timerRef.current = setInterval(() => {
-				setResendTimer((prev) => {
-					if (prev <= 1) {
-						clearInterval(timerRef.current!);
-						return 0;
-					}
-					return prev - 1;
-				});
-			}, 1000);
-		};
-
-		useEffect(() => {
-			return () => {
-				if (timerRef.current) clearInterval(timerRef.current);
-			};
-		}, []);
-
-		// initialize form defaults and OTP digits
+		// initialize form defaults
 		useEffect(() => {
 			if (
 				!initializedRef.current &&
@@ -87,104 +47,28 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 				Object.keys(defaultValues).length > 0
 			) {
 				reset(defaultValues, { keepDirty: true, keepTouched: true });
-
-				if (defaultValues.otp && typeof defaultValues.otp === 'string') {
-					const digits = defaultValues.otp
-						.split('')
-						.slice(0, 6)
-						.concat(Array(6).fill(''))
-						.slice(0, 6);
-					setOtpDigits(digits);
-					setValue('otp', digits.join(''), { shouldValidate: false });
-				}
-
 				initializedRef.current = true;
 			}
-		}, [defaultValues, reset, setValue]);
+		}, [defaultValues, reset]);
 
 		// sync form changes to parent
 		useEffect(() => {
 			const subscription = watch((values) => {
-				if (values.maritalStatus === '0') {
-					values.children = [];
-				}
 				onChange({ leadDetails: { ...values } });
 			});
 			return () => subscription.unsubscribe();
 		}, [watch, onChange]);
 
-		// OTP hooks
-		const { mutate: sendOtp, isPending: sendingOtp } = useSendOtp();
-		const { mutateAsync: verifyOtp, isPending: verifyingOtp } = useVerifyOtp();
-
-		const sendOtpHandler = (mobile: string) => {
-			sendOtp({ mobile });
-			startResendTimer();
-			setTimeout(() => inputRefs.current[0]?.focus(), 200);
-		};
-
-		// trigger OTP when consent is checked (only in create mode)
-		useEffect(() => {
-			if (leadMode === 'edit') return;
-
-			const mobile = watch('mobile');
-			const otp = watch('otp');
-
-			if (consent) {
-				if (mobile && /^[0-9]{10}$/.test(mobile)) {
-					if (!otp || otp.length < 6) {
-						sendOtpHandler(mobile);
-					}
-				} else {
-					setError('mobile', { message: 'Enter valid mobile before consent' });
-					setValue('consent', false);
-				}
-			} else {
-				setOtpDigits(Array(6).fill(''));
-				setValue('otp', '', { shouldValidate: false });
-			}
-		}, [consent, sendOtp, setError, setValue, watch, leadMode]);
-
 		useImperativeHandle(ref, () => ({
 			submitForm: async () => {
-				if (maritalStatus === '0') {
-					setValue('children', []);
-				}
-
 				const valid = await trigger();
 				if (!valid) return false;
-
-				// Skip OTP validation in edit mode
-				if (leadMode !== 'edit' && consent) {
-					if (!otpValue || otpValue.length < 6) {
-						setError('otp', { message: 'OTP is required' });
-						return false;
-					}
-					try {
-						const result = await verifyOtp({
-							mobile: watch('mobile'),
-							otp: otpValue,
-						});
-						if (!result?.success) {
-							setError('otp', {
-								message: 'OTP has expired. Re-check consent or resend OTP.',
-							});
-							setOtpDigits(Array(6).fill(''));
-							setValue('otp', '', { shouldValidate: false });
-							return false;
-						}
-					} catch {
-						setError('otp', { message: 'OTP verification failed' });
-						return false;
-					}
-				}
 
 				handleSubmit((data) =>
 					onChange({
 						leadDetails: {
 							...data,
 							consent: true,
-							children: data.maritalStatus === '0' ? [] : data.children,
 						},
 					}),
 				)();
@@ -196,64 +80,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 			const valid = await trigger();
 			if (!valid) return;
 
-			if (leadMode !== 'edit' && consent) {
-				if (!otpValue || otpValue.length < 6) {
-					setError('otp', { message: 'OTP is required' });
-					return;
-				}
-				try {
-					const result = await verifyOtp({
-						mobile: data.mobile,
-						otp: otpValue,
-					});
-					if (!result?.success) {
-						setError('otp', { message: 'Invalid OTP' });
-						return;
-					}
-				} catch {
-					setError('otp', { message: 'OTP verification failed' });
-					return;
-				}
-			}
-
 			onSubmitSuccess?.(data);
-		};
-
-		// OTP input handlers
-		const handleOtpChange = (value: string, index: number) => {
-			if (!/^[0-9]?$/.test(value)) return;
-			const newOtp = [...otpDigits];
-			newOtp[index] = value;
-			setOtpDigits(newOtp);
-			setValue('otp', newOtp.join(''), { shouldValidate: true });
-			if (value && index < 5) inputRefs.current[index + 1]?.focus();
-		};
-
-		const handleKeyDown = (
-			e: React.KeyboardEvent<HTMLInputElement>,
-			index: number,
-		) => {
-			const target = e.target as HTMLInputElement;
-			if (e.key === 'Backspace') {
-				if (!target.value && index > 0) inputRefs.current[index - 1]?.focus();
-			} else if (e.key === 'ArrowLeft') {
-				if (index > 0) inputRefs.current[index - 1]?.focus();
-			} else if (e.key === 'ArrowRight') {
-				if (index < 5) inputRefs.current[index + 1]?.focus();
-			}
-		};
-
-		const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-			e.preventDefault();
-			const paste = e.clipboardData.getData('Text').trim();
-			const digits = paste.replace(/\D/g, '').slice(0, 6).split('');
-			if (digits.length === 0) return;
-			const newOtp = [...otpDigits];
-			for (let i = 0; i < 6; i++) newOtp[i] = digits[i] ?? '';
-			setOtpDigits(newOtp);
-			setValue('otp', newOtp.join(''), { shouldValidate: true });
-			const focusIndex = Math.min(digits.length, 5);
-			setTimeout(() => inputRefs.current[focusIndex]?.focus(), 0);
 		};
 
 		const openStaticHtmlInNewTab = async (path: string, title = 'Policy') => {
@@ -304,7 +131,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 				<Form onSubmit={handleSubmit(onSubmit)}>
 					{/* ===== First + Last Name ===== */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>First Name (as per Aadhaar) *</Form.Label>
 								<Form.Control
@@ -320,7 +147,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Last Name *</Form.Label>
 								<Form.Control
@@ -340,7 +167,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* ===== Father/Husband Name ===== */}
 					<Row>
-						<Col>
+						<Col xs={12}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Father/Husband Name *</Form.Label>
 								<Form.Control
@@ -359,7 +186,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* ===== Email + Mobile ===== */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Email (For Communication) *</Form.Label>
 								<Form.Control
@@ -379,7 +206,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Mobile (Aadhaar Linked) *</Form.Label>
 								<Form.Control
@@ -403,7 +230,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* ===== DOB + Gender ===== */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Date of Birth *</Form.Label>
 								<Form.Control
@@ -425,7 +252,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							</Form.Group>
 						</Col>
 
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Gender *</Form.Label>
 								<Form.Select
@@ -446,7 +273,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* ===== PAN + Aadhaar ===== */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>PAN Number *</Form.Label>
 								<Form.Control
@@ -470,7 +297,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
-						<Col>
+
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Aadhaar Number *</Form.Label>
 								<Form.Control
@@ -497,7 +325,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* ===== Voter + Driving ===== */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Voter ID</Form.Label>
 								<Form.Control
@@ -506,7 +334,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 								/>
 							</Form.Group>
 						</Col>
-						<Col>
+
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Driving License</Form.Label>
 								<Form.Control
@@ -519,7 +348,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* ===== Address ===== */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Residence Type *</Form.Label>
 								<Form.Select
@@ -538,7 +367,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							</Form.Group>
 						</Col>
 
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Residence Pincode *</Form.Label>
 								<Form.Control
@@ -560,7 +389,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 					</Row>
 
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Residence Address Line 1 *</Form.Label>
 								<Form.Control
@@ -575,7 +404,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
-						<Col>
+
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Residence Address Line 2</Form.Label>
 								<Form.Control
@@ -588,7 +418,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* Marital + Dependents */}
 					<Row>
-						<Col>
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Marital Status *</Form.Label>
 								<Form.Select
@@ -603,7 +433,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 								</Form.Select>
 							</Form.Group>
 						</Col>
-						<Col>
+
+						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Number of Dependents *</Form.Label>
 								<Form.Select
@@ -624,7 +455,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 					{/* Employment Type */}
 					<Row>
-						<Col>
+						<Col xs={12}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Occupation detail *</Form.Label>
 								<Form.Select
@@ -644,92 +475,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 						</Col>
 					</Row>
 
-					{/* Children Details */}
-					{String(maritalStatus) === '1' && (
-						<div className='mb-3'>
-							<h6>Children Details</h6>
-							{fields.map((field, index) => (
-								<div key={field.id} className='border p-3 mb-2 rounded'>
-									<Row>
-										<Col>
-											<Form.Group>
-												<Form.Label>Name</Form.Label>
-												<Form.Control
-													{...register(`children.${index}.name` as const)}
-												/>
-											</Form.Group>
-										</Col>
-										<Col>
-											<Form.Group>
-												<Form.Label>Son/Daughter</Form.Label>
-												<Form.Select
-													{...register(`children.${index}.relation` as const)}
-												>
-													<option value=''>Select</option>
-													<option value='Son'>Son</option>
-													<option value='Daughter'>Daughter</option>
-												</Form.Select>
-											</Form.Group>
-										</Col>
-										<Col>
-											<Form.Group>
-												<Form.Label>Age</Form.Label>
-												<Form.Control
-													type='number'
-													{...register(`children.${index}.age` as const)}
-												/>
-											</Form.Group>
-										</Col>
-										<Col>
-											<Form.Group>
-												<Form.Label>Education</Form.Label>
-												<Form.Control
-													{...register(`children.${index}.education` as const)}
-												/>
-											</Form.Group>
-										</Col>
-										<Col>
-											<Form.Group>
-												<Form.Label>Occupation Name & Place</Form.Label>
-												<Form.Control
-													{...register(
-														`children.${index}.occupationPlace` as const,
-													)}
-												/>
-											</Form.Group>
-										</Col>
-										<Col xs='auto' className='d-flex align-items-end'>
-											<Button
-												variant='outline-danger'
-												size='sm'
-												onClick={() => remove(index)}
-											>
-												Remove
-											</Button>
-										</Col>
-									</Row>
-								</div>
-							))}
-
-							<Button
-								variant='outline-primary'
-								size='sm'
-								onClick={() =>
-									append({
-										name: '',
-										relation: '',
-										age: '',
-										education: '',
-										occupationPlace: '',
-									})
-								}
-							>
-								+ Add Child
-							</Button>
-						</div>
-					)}
-
-					{/* ===== Consent + OTP ===== */}
+					{/* Consent */}
 					<Form.Group className='mt-3'>
 						<Form.Check
 							type='checkbox'
@@ -741,9 +487,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							label={
 								<span style={{ fontSize: '0.8rem' }}>
 									Consent to conducting a credit bureau check, verify my KYC
-									(Know Your Customer) details through Digilocker, UIDAI, or
-									CKYCR, as applicable, and processing my personal information
-									in accordance with the{' '}
+									details through Digilocker, UIDAI, or CKYCR, and processing my
+									information in accordance with the{' '}
 									<a
 										href='#'
 										onClick={(e) => {
@@ -769,8 +514,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 									>
 										Terms & Conditions
 									</a>
-									. I acknowledge that I have read, understood and agree to the
-									terms and conditions of the loan / service.
+									.
 								</span>
 							}
 							isInvalid={leadMode !== 'edit' && !!errors.consent}
@@ -781,91 +525,6 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							</Form.Control.Feedback>
 						)}
 					</Form.Group>
-
-					{consent && leadMode !== 'edit' && (
-						<Form.Group className='mt-3'>
-							<Form.Label>Enter OTP *</Form.Label>
-							<div
-								className='d-flex gap-2 justify-content-center'
-								onPaste={handlePaste}
-							>
-								{otpDigits.map((digit, idx) => (
-									<input
-										key={idx}
-										type='text'
-										inputMode='numeric'
-										maxLength={1}
-										value={digit}
-										ref={(el) => (inputRefs.current[idx] = el)}
-										onChange={(e) =>
-											handleOtpChange(e.target.value.trim(), idx)
-										}
-										onKeyDown={(e) => handleKeyDown(e, idx)}
-										className='form-control text-center shadow-sm'
-										style={{
-											width: '48px',
-											height: '48px',
-											fontSize: '1.25rem',
-											fontWeight: 600,
-											borderRadius: '10px',
-											border: '2px solid #cfe2ff',
-											background: '#f9fbff',
-											transition: '0.2s',
-										}}
-										onFocus={(e) =>
-											(e.currentTarget.style.borderColor = '#007bff')
-										}
-										onBlur={(e) =>
-											(e.currentTarget.style.borderColor = '#cfe2ff')
-										}
-									/>
-								))}
-							</div>
-
-							<input
-								type='hidden'
-								{...register('otp', {
-									required: consent ? 'OTP is required' : false,
-									validate: (val: any) =>
-										!consent ||
-										(val && val.length === 6) ||
-										'Enter 6 digit OTP',
-								})}
-							/>
-
-							<Form.Control.Feedback type='invalid' className='d-block'>
-								{errors.otp?.message as string}
-							</Form.Control.Feedback>
-
-							{sendingOtp && (
-								<small className='text-info'>Sending OTP...</small>
-							)}
-							{verifyingOtp && (
-								<small className='text-info'>Validating OTP...</small>
-							)}
-
-							<div className='mt-2 text-center'>
-								<Button
-									variant='outline-primary'
-									size='sm'
-									disabled={resendTimer > 0}
-									onClick={() => {
-										const mobile = watch('mobile');
-										if (mobile && /^[0-9]{10}$/.test(mobile))
-											sendOtpHandler(mobile);
-										else
-											setError('mobile', {
-												message: 'Enter valid mobile before resending OTP',
-											});
-									}}
-								>
-									{resendTimer > 0
-										? `Resend OTP in ${resendTimer}s`
-										: 'Resend OTP'}
-								</Button>
-							</div>
-						</Form.Group>
-					)}
 
 					<div className='text-center mt-4'>
 						<Button
