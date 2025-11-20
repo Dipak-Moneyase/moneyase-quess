@@ -1,70 +1,96 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Step2ApplicantDetails from './Step2ApplicantDetails';
-import { useNavigate } from 'react-router-dom';
-import HeaderLogo from './header';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCreateApplicant } from '../Hooks/applicationHooks';
 
 const LoanApplication = () => {
 	const [formData, setFormData] = useState<any>({});
+	const [search] = useSearchParams();
 	const navigate = useNavigate();
 
-	const defaultValues = {
-		firstName: 'John',
-		lastName: 'Doe',
-		fatherHusbandName: 'Richard Doe',
-		email: 'john.doe@example.com',
-		mobile: '9876543210',
-		dob: '1990-05-15',
-		gender: '1',
-		panNumber: 'ABCDE1234F',
-		aadhaarLast4: '1234',
-		voterId: 'XYZ1234567',
-		drivingLicense: 'MH12AB1234',
-		residenceType: '0',
-		pinCode: '400001',
-		addressLine1: '123, Example Street',
-		addressLine2: 'Andheri West',
-		maritalStatus: '1',
-		dependents: '2',
-		employmentType: '0',
-		children: [
-			{
-				name: 'Aarav Doe',
-				relation: 'Son',
-				age: '5',
-				education: 'Kindergarten',
-				occupationPlace: '',
-			},
-			{
-				name: 'Sara Doe',
-				relation: 'Daughter',
-				age: '3',
-				education: 'Playgroup',
-				occupationPlace: '',
-			},
-		],
-		consent: true,
-		otp: '123456',
-	};
+	const applicantId = search.get('applicantid') ?? '';
+	const fullName = search.get('name') ?? '';
+	const mobile = search.get('mobile') ?? '';
+
+	const [firstName, lastName] = fullName.split(' ');
+
+	const { mutateAsync: createApplicant } = useCreateApplicant();
+
+	const [prefill, setPrefill] = useState<any>(null);
+
+	useEffect(() => {
+		const init = async () => {
+			try {
+				const payload = {
+					firstName: firstName || '',
+					lastName: lastName || '',
+					contactNo: mobile,
+					applicantId: applicantId,
+				};
+
+				console.log('Sending create-applicant:', payload);
+
+				const response = await createApplicant(payload);
+
+				console.log('Create Applicant Response:', response);
+
+				// Save token globally
+				if (response?.token) {
+					localStorage.setItem('authToken', response.token);
+				}
+
+				// Pre-fill data
+				if (response?.data) {
+					setPrefill(response.data);
+				}
+			} catch (error) {
+				console.error('Create Applicant Failed:', error);
+			}
+		};
+
+		init();
+	}, []);
+
+	// Prepare defaultValues for form
+	const defaultValues = prefill
+		? {
+				firstName: prefill.firstName || '',
+				lastName: prefill.lastName || '',
+				fatherHusbandName: prefill.fatherName || '',
+				email: prefill.emailId || '',
+				mobile: prefill.contactNo,
+				dob: prefill.dob || '',
+				gender: prefill.gender === 'Male' ? '1' : '2',
+				pinCode: prefill.pincode || '',
+				addressLine1: prefill.city || '',
+				addressLine2: prefill.state || '',
+				maritalStatus: prefill.maritalStatus === 'Single' ? '0' : '1',
+				panNumber: prefill.pan || '',
+				consent: true,
+		  }
+		: {};
 
 	const handleChange = (data: any) => {
 		setFormData(data);
 	};
 
 	const handleFormSubmit = (data: any) => {
-		//alert('Form submitted successfully!');
-		console.log('✅ Final Data:', data);
+		console.log('Final Form Data:', data);
 		navigate('/kycInitiated');
 	};
 
 	return (
 		<div className='container'>
-			{/*<h2 className='mb-4 text-center'>Loan Application 🏦</h2>*/}
-			<Step2ApplicantDetails
-				onChange={handleChange}
-				defaultValues={defaultValues}
-				leadMode='edit'
-				onSubmitSuccess={handleFormSubmit}
-			/>
+			{!prefill ? (
+				<p className='text-center mt-5'>Loading applicant data…</p>
+			) : (
+				<Step2ApplicantDetails
+					onChange={handleChange}
+					defaultValues={defaultValues}
+					leadMode='edit'
+					onSubmitSuccess={handleFormSubmit}
+				/>
+			)}
 		</div>
 	);
 };

@@ -43,13 +43,14 @@ const KycInitiated: React.FC = () => {
 	return (
 		<div
 			style={{
-				minHeight: '100vh',
+				maxHeight: '100vh',
 				display: 'flex',
 				justifyContent: 'center',
 				alignItems: 'center',
-				padding: '20px',
-				background: 'linear-gradient(135deg, #4b79ff, #8e44ff)',
-				color: '#fff',
+				padding: '10px',
+				marginTop: '0px',
+				//background: 'linear-gradient(135deg, #4b79ff, #8e44ff)',
+				//color: '#fff',
 			}}
 		>
 			<div

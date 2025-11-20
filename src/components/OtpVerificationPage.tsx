@@ -141,9 +141,9 @@ const OtpVerificationPage: React.FC<OtpVerificationProps> = ({
 				<p className='text-muted mb-1'>
 					<b>Mobile:</b> {mobile}
 				</p>
-				<p className='text-muted mb-4'>
+				{/*<p className='text-muted mb-4'>
 					<b>Customer ID:</b> {customerId}
-				</p>
+				</p>*/}
 
 				<Form.Group>
 					<Form.Label className='fw-semibold mb-2'>Enter OTP</Form.Label>

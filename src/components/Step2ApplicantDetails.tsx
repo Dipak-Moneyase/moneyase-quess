@@ -20,6 +20,8 @@ export interface Step2Ref {
 
 const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 	({ onChange, defaultValues, leadMode, onSubmitSuccess }, ref) => {
+		const isEdit = leadMode === 'edit';
+
 		const {
 			register,
 			handleSubmit,
@@ -30,7 +32,8 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 			reset,
 		} = useForm<Partial<any>>({
 			defaultValues: {
-				consent: leadMode === 'edit',
+				consent: isEdit,
+				addressCustom: '',
 				...defaultValues,
 			},
 			mode: 'onChange',
@@ -41,11 +44,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 
 		// initialize form defaults
 		useEffect(() => {
-			if (
-				!initializedRef.current &&
-				defaultValues &&
-				Object.keys(defaultValues).length > 0
-			) {
+			if (!initializedRef.current && defaultValues) {
 				reset(defaultValues, { keepDirty: true, keepTouched: true });
 				initializedRef.current = true;
 			}
@@ -83,6 +82,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 			onSubmitSuccess?.(data);
 		};
 
+		// open static docs
 		const openStaticHtmlInNewTab = async (path: string, title = 'Policy') => {
 			try {
 				const res = await fetch(path, { cache: 'no-store' });
@@ -133,122 +133,78 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>First Name (as per Aadhaar) *</Form.Label>
+								<Form.Label>First Name *</Form.Label>
 								<Form.Control
-									placeholder='Enter First Name'
-									{...register('firstName', {
-										required: 'First Name is required',
-										minLength: { value: 2, message: 'Minimum 2 characters' },
-									})}
+									disabled={isEdit}
+									{...register('firstName', { required: false })}
 									isInvalid={!!errors.firstName}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.firstName?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
+
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Last Name *</Form.Label>
 								<Form.Control
-									placeholder='Enter Last Name'
-									{...register('lastName', {
-										required: 'Last Name is required',
-										minLength: { value: 2, message: 'Minimum 2 characters' },
-									})}
+									disabled={isEdit}
+									{...register('lastName', { required: false })}
 									isInvalid={!!errors.lastName}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.lastName?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* ===== Father/Husband Name ===== */}
+					{/* Father/Husband */}
 					<Row>
 						<Col xs={12}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Father/Husband Name *</Form.Label>
 								<Form.Control
-									placeholder='Enter Father/Husband Name'
-									{...register('fatherHusbandName', {
-										required: 'Father/Husband Name is required',
-									})}
+									disabled={isEdit}
+									{...register('fatherHusbandName', { required: false })}
 									isInvalid={!!errors.fatherHusbandName}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.fatherHusbandName?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* ===== Email + Mobile ===== */}
+					{/* Email + Mobile */}
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>Email (For Communication) *</Form.Label>
+								<Form.Label>Email *</Form.Label>
 								<Form.Control
 									type='email'
-									placeholder='Enter Email'
-									{...register('email', {
-										required: 'Email is required',
-										pattern: {
-											value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-											message: 'Enter a valid email',
-										},
-									})}
+									disabled={isEdit}
+									{...register('email', { required: false })}
 									isInvalid={!!errors.email}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.email?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
+
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>Mobile (Aadhaar Linked) *</Form.Label>
+								<Form.Label>Mobile *</Form.Label>
 								<Form.Control
-									placeholder='Enter Mobile'
-									disabled={leadMode === 'edit'}
-									{...register('mobile', {
-										required: 'Mobile is required',
-										pattern: {
-											value: /^[0-9]{10}$/,
-											message: 'Enter valid 10-digit mobile number',
-										},
-									})}
+									disabled={isEdit}
+									{...register('mobile', { required: false })}
 									isInvalid={!!errors.mobile}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.mobile?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* ===== DOB + Gender ===== */}
+					{/* DOB + Gender */}
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Date of Birth *</Form.Label>
 								<Form.Control
 									type='date'
-									max={new Date().toISOString().split('T')[0]}
-									{...register('dob', {
-										required: 'DOB is required',
-										validate: (value) => {
-											const today = new Date();
-											const selected = new Date(value);
-											return selected <= today || 'DOB cannot be a future date';
-										},
-									})}
+									disabled={isEdit}
+									{...register('dob', { required: false })}
 									isInvalid={!!errors.dob}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.dob?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 
@@ -256,82 +212,49 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							<Form.Group className='mb-3'>
 								<Form.Label>Gender *</Form.Label>
 								<Form.Select
-									{...register('gender', { required: 'Gender is required' })}
-									isInvalid={!!errors.gender}
+									disabled={isEdit}
+									{...register('gender', { required: false })}
 								>
-									<option value=''>Select Gender</option>
+									<option value=''>Select</option>
 									<option value='1'>Male</option>
 									<option value='2'>Female</option>
 									<option value='3'>Other</option>
 								</Form.Select>
-								<Form.Control.Feedback type='invalid'>
-									{errors.gender?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* ===== PAN + Aadhaar ===== */}
+					{/* PAN + Aadhaar */}
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>PAN Number *</Form.Label>
+								<Form.Label>PAN *</Form.Label>
 								<Form.Control
-									placeholder='Enter PAN Number'
-									{...register('panNumber', {
-										required: 'PAN is required',
-										pattern: {
-											value: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
-											message: 'Enter valid PAN number',
-										},
-									})}
-									onChange={(e) => {
-										const upper = e.target.value.toUpperCase();
-										e.target.value = upper;
-										setValue('panNumber', upper, { shouldValidate: true });
-									}}
+									disabled={isEdit}
+									{...register('panNumber', { required: false })}
 									isInvalid={!!errors.panNumber}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.panNumber?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>Aadhaar Number *</Form.Label>
+								<Form.Label>Aadhaar *</Form.Label>
 								<Form.Control
-									placeholder='123412341234'
-									maxLength={12}
-									{...register('aadhaarNumber', {
-										required: 'Aadhaar number is required',
-										pattern: {
-											value: /^[2-9]{1}[0-9]{11}$/,
-											message: 'Enter a valid 12-digit Aadhaar number',
-										},
-										validate: (value) =>
-											value.length === 12 ||
-											'Aadhaar must be exactly 12 digits',
-									})}
+									disabled={isEdit}
+									{...register('aadhaarNumber', { required: false })}
 									isInvalid={!!errors.aadhaarNumber}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.aadhaarNumber?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* ===== Voter + Driving ===== */}
+					{/* Voter + DL */}
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Voter ID</Form.Label>
-								<Form.Control
-									placeholder='Enter Voter ID'
-									{...register('voterId')}
-								/>
+								<Form.Control disabled={isEdit} {...register('voterId')} />
 							</Form.Group>
 						</Col>
 
@@ -339,34 +262,39 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							<Form.Group className='mb-3'>
 								<Form.Label>Driving License</Form.Label>
 								<Form.Control
-									placeholder='Enter Driving License'
+									disabled={isEdit}
 									{...register('drivingLicense')}
 								/>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* ===== Address ===== */}
+					{/* Address */}
 					<Row>
+						<Col xs={12} md={6}>
+							<Form.Group className='mb-3'>
+								<Form.Label>Pincode *</Form.Label>
+								<Form.Control
+									disabled={isEdit}
+									{...register('pinCode', { required: false })}
+									isInvalid={!!errors.pinCode}
+								/>
+							</Form.Group>
+						</Col>
+
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Residence Type *</Form.Label>
 								<Form.Select
-									{...register('residenceType', {
-										required: 'Residence Type is required',
-									})}
-									isInvalid={!!errors.residenceType}
+									disabled={isEdit}
+									{...register('residenceType', { required: false })}
 								>
 									<option value=''>Select</option>
 									<option value='0'>Owned</option>
 									<option value='1'>Rented</option>
 								</Form.Select>
-								<Form.Control.Feedback type='invalid'>
-									{errors.residenceType?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
-
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Residence Pincode *</Form.Label>
@@ -391,63 +319,47 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>Residence Address Line 1 *</Form.Label>
+								<Form.Label>Address Line 1 *</Form.Label>
 								<Form.Control
-									placeholder='Enter Address Line 1'
-									{...register('addressLine1', {
-										required: 'Address is required',
-									})}
-									isInvalid={!!errors.addressLine1}
+									disabled={isEdit}
+									{...register('addressLine1', { required: false })}
 								/>
-								<Form.Control.Feedback type='invalid'>
-									{errors.addressLine1?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
-								<Form.Label>Residence Address Line 2</Form.Label>
+								<Form.Label>Address Line 2</Form.Label>
+								<Form.Control disabled={isEdit} {...register('addressLine2')} />
+							</Form.Group>
+						</Col>
+					</Row>
+
+					{/* ⭐ NEW FIELD — Editable Custom Address */}
+					<Row>
+						<Col xs={12}>
+							<Form.Group className='mb-3'>
+								<Form.Label>Address (Custom)</Form.Label>
 								<Form.Control
-									placeholder='Enter Address Line 2'
-									{...register('addressLine2')}
+									placeholder='Enter your custom address'
+									{...register('addressCustom')}
 								/>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* Marital + Dependents */}
+					{/* Marital */}
 					<Row>
 						<Col xs={12} md={6}>
 							<Form.Group className='mb-3'>
 								<Form.Label>Marital Status *</Form.Label>
 								<Form.Select
-									{...register('maritalStatus', {
-										required: 'Marital Status is required',
-									})}
-									isInvalid={!!errors.maritalStatus}
+									disabled={isEdit}
+									{...register('maritalStatus', { required: false })}
 								>
 									<option value=''>Select</option>
 									<option value='0'>Single</option>
 									<option value='1'>Married</option>
-								</Form.Select>
-							</Form.Group>
-						</Col>
-
-						<Col xs={12} md={6}>
-							<Form.Group className='mb-3'>
-								<Form.Label>Number of Dependents *</Form.Label>
-								<Form.Select
-									{...register('dependents', {
-										required: 'Dependents is required',
-									})}
-									isInvalid={!!errors.dependents}
-								>
-									{Array.from({ length: 11 }).map((_, i) => (
-										<option key={i} value={i}>
-											{i}
-										</option>
-									))}
 								</Form.Select>
 							</Form.Group>
 						</Col>
@@ -459,31 +371,24 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 							<Form.Group className='mb-3'>
 								<Form.Label>Occupation detail *</Form.Label>
 								<Form.Select
-									{...register('employmentType', {
-										required: 'Employment Type is required',
-									})}
-									isInvalid={!!errors.employmentType}
+									disabled={isEdit}
+									{...register('employmentType', { required: false })}
 								>
 									<option value=''>Select Employment Type</option>
 									<option value='0'>Salaried</option>
 									<option value='1'>Self Employed</option>
 								</Form.Select>
-								<Form.Control.Feedback type='invalid'>
-									{errors.employmentType?.message as string}
-								</Form.Control.Feedback>
 							</Form.Group>
 						</Col>
 					</Row>
 
-					{/* Consent */}
+					{/* Consent (Editable) */}
 					<Form.Group className='mt-3'>
 						<Form.Check
 							type='checkbox'
-							disabled={leadMode === 'edit'}
-							defaultChecked={leadMode === 'edit'}
-							{...register('consent', {
-								required: leadMode !== 'edit' ? 'Consent is required' : false,
-							})}
+							disabled={false}
+							defaultChecked={isEdit}
+							{...register('consent', { required: false })}
 							label={
 								<span style={{ fontSize: '0.8rem' }}>
 									Consent to conducting a credit bureau check, verify my KYC
@@ -526,6 +431,7 @@ const Step2ApplicantDetails = forwardRef<Step2Ref, Props>(
 						)}
 					</Form.Group>
 
+					{/* Submit */}
 					<div className='text-center mt-4'>
 						<Button
 							type='submit'

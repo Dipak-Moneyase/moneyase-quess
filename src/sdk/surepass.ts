@@ -19,6 +19,7 @@ export const initializeDigiLocker = async ({
 					signup_flow: true,
 					//logo_url: logo,
 					skip_main_screen: false,
+					redirect_url: `${window.location.origin}/digilocker/callback`,
 				},
 			}),
 		},

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card } from 'react-bootstrap';
+import HeaderLogo from './header';
 
 const StatusPage: React.FC = () => {
 	const [search] = useSearchParams();
@@ -13,23 +14,9 @@ const StatusPage: React.FC = () => {
 		};
 	}, [search]);
 
-	const externalAppUrl = useMemo(() => {
-		switch (status.toLowerCase()) {
-			case 'loanapplied':
-				return 'https://fynix-app.example.com/stage1';
-			case 'fynix stage 1':
-				return 'https://fynix-app.example.com/stage1';
-			case 'fynix stage 2':
-				return 'https://fynix-app.example.com/stage2';
-			case 'app pending':
-				return 'https://fynix-app.example.com/pending';
-			default:
-				return 'https://fynix-app.example.com/dashboard';
-		}
-	}, [status]);
-
 	return (
-		<div className='container mt-5'>
+		<div>
+			<HeaderLogo />
 			<Card
 				className='shadow-lg p-4 mb-4 rounded-4 text-center'
 				style={{
@@ -61,19 +48,6 @@ const StatusPage: React.FC = () => {
 			<div className='text-center mb-3'>
 				<h6 className='text-muted'>Continue your journey below 👇</h6>
 			</div>
-
-			<iframe
-				src={externalAppUrl}
-				title='External App'
-				style={{
-					width: '100%',
-					height: '600px',
-					borderRadius: '16px',
-					border: '2px solid #dee3f0',
-					boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-				}}
-				allow='fullscreen'
-			/>
 		</div>
 	);
 };
